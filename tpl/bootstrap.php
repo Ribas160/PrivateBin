@@ -28,6 +28,13 @@ if ($isDark) :
 <?php
 endif;
 ?>
+<?php
+if (I18n::isRtl()):
+?>
+		<link type="text/css" rel="stylesheet" href="css/bootstrap/bootstrap-3.4.1-rtl.css" />
+<?php
+endif;
+?>
 		<link type="text/css" rel="stylesheet" href="css/bootstrap/privatebin.css?<?php echo rawurlencode($VERSION); ?>" />
 <?php
 if ($SYNTAXHIGHLIGHTING) :
@@ -435,7 +442,7 @@ if (!$isCpct) :
 endif;
 ?>
 				</ul>
-				<ul class="nav navbar-nav pull-right">
+				<ul class="nav navbar-nav <?php echo I18n::isRtl() ? 'pull-left' : 'pull-right' ?>">
 <?php
 if (!empty($LANGUAGESELECTION)) :
 ?>
@@ -496,7 +503,7 @@ endif;
 					<?php
 						if ((bool)$ISDELETED):
 					?>
-						<button type="button" class="btn btn-default pull-right" id="new-from-alert">
+						<button type="button" class="btn btn-default <?php echo I18n::isRtl() ? 'pull-left' : 'pull-right' ?>" id="new-from-alert">
 							<span class="glyphicon glyphicon-repeat"></span> <?php echo I18n::_('Start over'), PHP_EOL; ?>
 						</button>
 					<?php endif; ?>
@@ -567,7 +574,7 @@ endif;
 				<ul id="editorTabs" class="nav nav-tabs hidden">
 					<li role="presentation" class="active"><a role="tab" aria-selected="true" aria-controls="editorTabs" id="messageedit" href="#"><?php echo I18n::_('Editor'); ?></a></li>
 					<li role="presentation"><a role="tab" aria-selected="false" aria-controls="editorTabs" id="messagepreview" href="#"><?php echo I18n::_('Preview'); ?></a></li>
-					<li role="presentation" class="pull-right">
+					<li role="presentation" class="<?php echo I18n::isRtl() ? 'pull-left' : 'pull-right' ?>">
 <?php
 if ($isPage) :
 ?>

@@ -139,6 +139,11 @@ html[dir="rtl"] #deletelink, html[dir="rtl"] #qrcodemodalClose {
 	float: left;
 }
 
+html[dir="rtl"] .dropdown-menu-right {
+	left: 0;
+	right: auto;
+}
+
 #prettyprint {
 	padding-right: 30px;
 }
