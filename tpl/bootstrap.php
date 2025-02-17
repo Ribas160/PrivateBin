@@ -78,7 +78,7 @@ if ($MARKDOWN) :
 <?php
 endif;
 ?>
-		<?php $this->_scriptTag('js/purify-3.2.3.js', 'async'); ?>
+		<?php $this->_scriptTag('js/purify-3.2.4.js', 'async'); ?>
 		<?php $this->_scriptTag('js/legacy.js', 'async'); ?>
 		<?php $this->_scriptTag('js/privatebin.js', 'defer'); ?>
 		<!-- icon -->
@@ -455,6 +455,28 @@ if (!empty($LANGUAGESELECTION)) :
 							<li>
 								<a href="#" data-lang="<?php echo $key; ?>">
 									<?php echo $value[0]; ?> (<?php echo $value[1]; ?>)
+								</a>
+							</li>
+<?php
+    endforeach;
+?>
+						</ul>
+					</li>
+<?php
+endif;
+?>
+<?php
+if (!empty($TEMPLATESELECTION)) :
+?>
+					<li id="template" class="dropdown">
+						<a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false"><?php echo I18n::_('Theme'); ?>: <?php echo $TEMPLATESELECTION; ?> <span class="caret"></span></a>
+						<ul class="dropdown-menu dropdown-menu-right">
+<?php
+    foreach ($TEMPLATES as $value) :
+?>
+							<li>
+								<a href="#" data-template="<?php echo $value; ?>">
+									<?php echo $value; ?>
 								</a>
 							</li>
 <?php

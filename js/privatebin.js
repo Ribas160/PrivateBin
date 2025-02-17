@@ -58,7 +58,6 @@ jQuery.PrivateBin = (function($, RawDeflate) {
      */
      const purifyHtmlConfig = {
         ALLOWED_URI_REGEXP: /^(?:(?:(?:f|ht)tps?|mailto|magnet):)/i,
-        SAFE_FOR_JQUERY: true,
         USE_PROFILES: {
             html: true
         }
@@ -3933,7 +3932,26 @@ jQuery.PrivateBin = (function($, RawDeflate) {
          */
         function setLanguage(event)
         {
-            document.cookie = 'lang=' + $(event.target).data('lang') + '; SameSite=Lax; Secure';
+            let lang = $(event.target).data('lang') || event.target.value;
+
+            document.cookie = 'lang=' + lang + '; SameSite=Lax; Secure';
+            window.location.reload();
+            event.preventDefault();
+        }
+
+        /**
+         * save the template in a cookie and reloads the page
+         *
+         * @name TopNav.setTemplate
+         * @private
+         * @function
+         * @param {Event} event
+         */
+        function setTemplate(event)
+        {
+            let template = $(event.target).data('template') || event.target.value;
+
+            document.cookie = 'template=' + template + '; SameSite=Lax; Secure';
             window.location.reload();
             event.preventDefault();
         }
@@ -4625,7 +4643,12 @@ jQuery.PrivateBin = (function($, RawDeflate) {
             // bootstrap template drop down
             $('#language ul.dropdown-menu li a').click(setLanguage);
             // page template drop down
-            $('#language select option').click(setLanguage);
+            $('#language select').change(setLanguage);
+
+            // bootstrap template drop down
+            $('#template ul.dropdown-menu li a').click(setTemplate);
+            // page template drop down
+            $('#template select').change(setTemplate);
 
             // bind events
             $burnAfterReading.change(changeBurnAfterReading);
@@ -5454,11 +5477,11 @@ jQuery.PrivateBin = (function($, RawDeflate) {
     const CopyToClipboard = (function () {
         const me = {};
 
-        let copyButton = $('#prettyMessageCopyBtn'),
-            copyLinkButton = $('#copyLink'),
-            copyIcon = $('#copyIcon'),
-            successIcon = $('#copySuccessIcon'),
-            shortcutHint = $('#copyShortcutHintText'),
+        let copyButton,
+            copyLinkButton,
+            copyIcon,
+            successIcon,
+            shortcutHint,
             url;
 
         /**
@@ -5613,6 +5636,12 @@ jQuery.PrivateBin = (function($, RawDeflate) {
          * @function
          */
         me.init = function() {
+            copyButton = $('#prettyMessageCopyBtn');
+            copyLinkButton = $('#copyLink');
+            copyIcon = $('#copyIcon');
+            successIcon = $('#copySuccessIcon');
+            shortcutHint = $('#copyShortcutHintText');
+
             handleCopyButtonClick();
             handleCopyLinkButtonClick();
             handleKeyboardShortcut();

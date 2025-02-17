@@ -49,7 +49,7 @@ if ($MARKDOWN):
 <?php
 endif;
 ?>
-		<?php $this->_scriptTag('js/purify-3.2.3.js', 'async'); ?>
+		<?php $this->_scriptTag('js/purify-3.2.4.js', 'async'); ?>
 		<?php $this->_scriptTag('js/legacy.js', 'async'); ?>
 		<?php $this->_scriptTag('js/privatebin.js', 'defer'); ?>
 		<!-- icon -->
@@ -215,6 +215,27 @@ if (!empty($LANGUAGESELECTION)):
 ?> selected="selected"<?php
         endif;
 ?>><?php echo $value[0]; ?> (<?php echo $value[1]; ?>)</option>
+<?php
+    endforeach;
+?>
+						</select>
+					</div>
+<?php
+endif;
+?>
+<?php
+if (!empty($TEMPLATESELECTION)):
+?>
+					<div id="template" class="button"><?php echo I18n::_('Theme'); ?>:
+						<select name="template">
+<?php
+    foreach ($TEMPLATES as $value):
+?>
+							<option data-template="<?php echo $value; ?>" value="<?php echo $value; ?>"<?php
+        if ($value == $TEMPLATESELECTION):
+?> selected="selected"<?php
+        endif;
+?>><?php echo $value; ?></option>
 <?php
     endforeach;
 ?>
