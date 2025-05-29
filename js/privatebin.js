@@ -2536,11 +2536,13 @@ jQuery.PrivateBin = (function($, RawDeflate) {
             // show preview
             PasteViewer.setText($message.val());
             if (AttachmentViewer.hasAttachmentData()) {
-                const attachment = AttachmentViewer.getAttachment();
-                AttachmentViewer.handleBlobAttachmentPreview(
-                    AttachmentViewer.getAttachmentPreview(),
-                    attachment[0], attachment[1]
-                );
+                const attachments = AttachmentViewer.getAttachments();
+                attachments.forEach(attachment => {
+                    AttachmentViewer.handleBlobAttachmentPreview(
+                        AttachmentViewer.getAttachmentPreview(),
+                        attachment[0], attachment[1]
+                    );
+                });
             }
             PasteViewer.run();
 
@@ -2925,13 +2927,12 @@ jQuery.PrivateBin = (function($, RawDeflate) {
     const AttachmentViewer = (function () {
         const me = {};
 
-        let $attachmentLink,
-            $attachmentPreview,
+        let $attachmentPreview,
             $attachment,
-            attachmentData,
-            file,
+            attachmentsData = [],
+            files,
             $fileInput,
-            $dragAndDropFileName,
+            $dragAndDropFileNames,
             attachmentHasPreview = false,
             $dropzone;
 
@@ -2974,9 +2975,12 @@ jQuery.PrivateBin = (function($, RawDeflate) {
         me.setAttachment = function(attachmentData, fileName)
         {
             // skip, if attachments got disabled
-            if (!$attachmentLink || !$attachmentPreview) return;
+            if (!$attachment || !$attachmentPreview) return;
 
             // data URI format: data:[<mimeType>][;base64],<data>
+
+            const template = Model.getTemplate('attachment');
+            const attachmentLink = template.find('a');
 
             // position in data URI string of where data begins
             const base64Start = attachmentData.indexOf(',') + 1;
@@ -2990,10 +2994,11 @@ jQuery.PrivateBin = (function($, RawDeflate) {
             const decodedData = rawData.length > 0 ? atob(rawData) : '';
 
             let blobUrl = getBlobUrl(decodedData, mimeType);
-            $attachmentLink.attr('href', blobUrl);
+            attachmentLink.attr('href', blobUrl);
 
             if (typeof fileName !== 'undefined') {
-                $attachmentLink.attr('download', fileName);
+                attachmentLink.attr('download', fileName);
+                template.append(fileName);
             }
 
             // sanitize SVG preview
@@ -3007,6 +3012,9 @@ jQuery.PrivateBin = (function($, RawDeflate) {
                 );
                 blobUrl = getBlobUrl(sanitizedData, mimeType);
             }
+
+            template.removeClass('hidden');
+            $attachment.append(template);
 
             me.handleBlobAttachmentPreview($attachmentPreview, blobUrl, mimeType);
         };
@@ -3045,11 +3053,9 @@ jQuery.PrivateBin = (function($, RawDeflate) {
             }
             me.hideAttachment();
             me.hideAttachmentPreview();
-            $attachmentLink.removeAttr('href');
-            $attachmentLink.removeAttr('download');
-            $attachmentLink.off('click');
+            $attachment.html('');
             $attachmentPreview.html('');
-            $dragAndDropFileName.text('');
+            $dragAndDropFileNames.html('');
 
             AttachmentViewer.removeAttachmentData();
         };
@@ -3064,8 +3070,8 @@ jQuery.PrivateBin = (function($, RawDeflate) {
          */
         me.removeAttachmentData = function()
         {
-            file = undefined;
-            attachmentData = undefined;
+            files = undefined;
+            attachmentsData = [];
         };
 
         /**
@@ -3076,8 +3082,20 @@ jQuery.PrivateBin = (function($, RawDeflate) {
          */
         me.clearDragAndDrop = function()
         {
-            $dragAndDropFileName.text('');
+            $dragAndDropFileNames.html('');
         };
+
+        /**
+         * Print file names added via drag & drop
+         * 
+         * @name AttachmentViewer.printDragAndDropFileNames
+         * @private
+         * @function
+         * @param {array} fileNames
+         */
+        function printDragAndDropFileNames(fileNames) {
+            $dragAndDropFileNames.html(fileNames.join("<br>"));
+        }
 
         /**
          * hides the attachment
@@ -3118,8 +3136,7 @@ jQuery.PrivateBin = (function($, RawDeflate) {
             if (!$attachment.length) {
                 return false;
             }
-            const link = $attachmentLink.prop('href');
-            return (typeof link !== 'undefined' && link !== '');
+            return [...$attachment.children()].length > 0;
         };
 
         /**
@@ -3139,18 +3156,20 @@ jQuery.PrivateBin = (function($, RawDeflate) {
         };
 
         /**
-         * return the attachment
+         * return the attachments
          *
-         * @name   AttachmentViewer.getAttachment
+         * @name   AttachmentViewer.getAttachments
          * @function
          * @returns {array}
          */
-        me.getAttachment = function()
+        me.getAttachments = function()
         {
-            return [
-                $attachmentLink.prop('href'),
-                $attachmentLink.prop('download')
-            ];
+            return [...$attachment.find('a')].map(link => (
+                [
+                    $(link).prop('href'),
+                    $(link).prop('download')
+                ]
+            ));
         };
 
         /**
@@ -3161,27 +3180,33 @@ jQuery.PrivateBin = (function($, RawDeflate) {
          * @name   AttachmentViewer.moveAttachmentTo
          * @function
          * @param {jQuery} $element - the wrapper/container element where this should be moved to
+         * @param {array} attachment - attachment data
          * @param {string} label - the text to show (%s will be replaced with the file name), will automatically be translated
          */
-        me.moveAttachmentTo = function($element, label)
+        me.moveAttachmentTo = function($element, attachment, label)
         {
+            const attachmentLink = $(document.createElement('a'))
+                                        .addClass('alert-link')
+                                        .prop('href', attachment[0])
+                                        .prop('download', attachment[1]);
+
             // move elemement to new place
-            $attachmentLink.appendTo($element);
+            attachmentLink.appendTo($element);
 
             // update text - ensuring no HTML is inserted into the text node
-            I18n._($attachmentLink, label, $attachmentLink.attr('download'));
+            I18n._(attachmentLink, label, attachment[1]);
         };
 
         /**
-         * read file data as data URL using the FileReader API
+         * read files data as data URL using the FileReader API
          *
          * @name   AttachmentViewer.readFileData
          * @private
          * @function
-         * @param {object} loadedFile (optional) loaded file object
+         * @param {FileList[]} loadedFiles (optional) loaded files array
          * @see {@link https://developer.mozilla.org/en-US/docs/Web/API/FileReader#readAsDataURL()}
          */
-        function readFileData(loadedFile) {
+        function readFileData(loadedFiles) {
             if (typeof FileReader === 'undefined') {
                 // revert loading status…
                 me.hideAttachment();
@@ -3190,28 +3215,35 @@ jQuery.PrivateBin = (function($, RawDeflate) {
                 return;
             }
 
-            const fileReader = new FileReader();
-            if (loadedFile === undefined) {
-                loadedFile = $fileInput[0].files[0];
-                $dragAndDropFileName.text('');
+            if (loadedFiles === undefined) {
+                loadedFiles = [...$fileInput[0].files];
+                me.clearDragAndDrop();
             } else {
-                $dragAndDropFileName.text(loadedFile.name);
+                const fileNames = loadedFiles.map((loadedFile => loadedFile.name));
+                printDragAndDropFileNames(fileNames);
             }
 
-            if (typeof loadedFile !== 'undefined') {
-                file = loadedFile;
-                fileReader.onload = function (event) {
-                    const dataURL = event.target.result;
-                    attachmentData = dataURL;
+            if (typeof loadedFiles !== 'undefined') {
+                files = loadedFiles;
+                loadedFiles.forEach(loadedFile => {
+                    const fileReader = new FileReader();
 
-                    if (Editor.isPreview()) {
-                        me.handleAttachmentPreview($attachmentPreview, dataURL);
-                        $attachmentPreview.removeClass('hidden');
-                    }
+                    fileReader.onload = function (event) {
+                        const dataURL = event.target.result;
+                        if (dataURL) {
+                            attachmentsData.push(dataURL);
+                        }
 
-                    TopNav.highlightFileupload();
-                };
-                fileReader.readAsDataURL(loadedFile);
+                        if (Editor.isPreview()) {
+                            me.handleAttachmentPreview($attachmentPreview, dataURL);
+                            $attachmentPreview.removeClass('hidden');
+                        }
+
+                        TopNav.highlightFileupload();
+                    };
+
+                    fileReader.readAsDataURL(loadedFile);
+                });
             } else {
                 me.removeAttachmentData();
             }
@@ -3230,13 +3262,13 @@ jQuery.PrivateBin = (function($, RawDeflate) {
             if (blobUrl) {
                 attachmentHasPreview = true;
                 if (mimeType.match(/^image\//i)) {
-                    $targetElement.html(
+                    $targetElement.append(
                         $(document.createElement('img'))
                             .attr('src', blobUrl)
                             .attr('class', 'img-thumbnail')
                     );
                 } else if (mimeType.match(/^video\//i)) {
-                    $targetElement.html(
+                    $targetElement.append(
                         $(document.createElement('video'))
                             .attr('controls', 'true')
                             .attr('autoplay', 'true')
@@ -3247,7 +3279,7 @@ jQuery.PrivateBin = (function($, RawDeflate) {
                             .attr('src', blobUrl))
                     );
                 } else if (mimeType.match(/^audio\//i)) {
-                    $targetElement.html(
+                    $targetElement.append(
                         $(document.createElement('audio'))
                             .attr('controls', 'true')
                             .attr('autoplay', 'true')
@@ -3260,7 +3292,7 @@ jQuery.PrivateBin = (function($, RawDeflate) {
                     // Fallback for browsers, that don't support the vh unit
                     const clientHeight = $(window).height();
 
-                    $targetElement.html(
+                    $targetElement.append(
                         $(document.createElement('embed'))
                             .attr('src', blobUrl)
                             .attr('type', 'application/pdf')
@@ -3301,14 +3333,14 @@ jQuery.PrivateBin = (function($, RawDeflate) {
                 }
 
                 if ($fileInput) {
-                    const file = evt.dataTransfer.files[0];
+                    const files = [...evt.dataTransfer.files];
                     //Clear the file input:
                     $fileInput.wrap('<form>').closest('form').get(0).reset();
                     $fileInput.unwrap();
                     //Only works in Chrome:
                     //fileInput[0].files = e.dataTransfer.files;
 
-                    readFileData(file);
+                    readFileData(files);
                 }
             };
 
@@ -3362,23 +3394,12 @@ jQuery.PrivateBin = (function($, RawDeflate) {
         /**
          * getter for attachment data
          *
-         * @name   AttachmentViewer.getAttachmentData
+         * @name   AttachmentViewer.getAttachmentsData
          * @function
-         * @return {jQuery}
+         * @return {string[]}
          */
-        me.getAttachmentData = function () {
-            return attachmentData;
-        };
-
-        /**
-         * getter for attachment link
-         *
-         * @name   AttachmentViewer.getAttachmentLink
-         * @function
-         * @return {jQuery}
-         */
-        me.getAttachmentLink = function () {
-            return $attachmentLink;
+        me.getAttachmentsData = function () {
+            return attachmentsData;
         };
 
         /**
@@ -3393,14 +3414,14 @@ jQuery.PrivateBin = (function($, RawDeflate) {
         };
 
         /**
-         * getter for file data, returns the file contents
+         * getter for files data, returns the file list
          *
-         * @name   AttachmentViewer.getFile
+         * @name   AttachmentViewer.getFiles
          * @function
-         * @return {string}
+         * @return {FileList[]}
          */
-        me.getFile = function () {
-            return file;
+        me.getFiles = function () {
+            return files;
         };
 
         /**
@@ -3414,9 +3435,8 @@ jQuery.PrivateBin = (function($, RawDeflate) {
         me.init = function()
         {
             $attachment = $('#attachment');
-            $dragAndDropFileName = $('#dragAndDropFileName');
+            $dragAndDropFileNames = $('#dragAndDropFileName');
             $dropzone = $('#dropzone');
-            $attachmentLink = $('#attachment a') || $('<a>');
             if($attachment.length) {
                 $attachmentPreview = $('#attachmentPreview');
 
@@ -5135,7 +5155,7 @@ jQuery.PrivateBin = (function($, RawDeflate) {
             const plainText = Editor.getText(),
                   format    = PasteViewer.getFormat(),
                   // the methods may return different values if no files are attached (null, undefined or false)
-                  files     = TopNav.getFileList() || AttachmentViewer.getFile() || AttachmentViewer.hasAttachment();
+                  files     = TopNav.getFileList() || AttachmentViewer.getFiles() || AttachmentViewer.hasAttachment();
 
             // do not send if there is no data
             if (plainText.length === 0 && !files) {
@@ -5175,62 +5195,64 @@ jQuery.PrivateBin = (function($, RawDeflate) {
             PasteViewer.setFormat(format);
 
             // prepare cypher message
-            let file = AttachmentViewer.getAttachmentData(),
+            let attachmentsData = AttachmentViewer.getAttachmentsData(),
                 cipherMessage = {
                     'paste': plainText
                 };
-            if (typeof file !== 'undefined' && file !== null) {
-                cipherMessage['attachment'] = file;
-                cipherMessage['attachment_name'] = AttachmentViewer.getFile().name;
+            if (attachmentsData.length) {
+                cipherMessage['attachment'] = attachmentsData;
+                cipherMessage['attachment_name'] = AttachmentViewer.getFiles().map((fileInfo => fileInfo.name));
             } else if (AttachmentViewer.hasAttachment()) {
                 // fall back to cloned part
-                let attachment = AttachmentViewer.getAttachment();
-                cipherMessage['attachment'] = attachment[0];
-                cipherMessage['attachment_name'] = attachment[1];
+                let attachments = AttachmentViewer.getAttachments();
+                cipherMessage['attachment'] = attachments.map(attachment => attachment[0]);
+                cipherMessage['attachment_name'] = attachments.map(attachment => attachment[1]);
 
-                // we need to retrieve data from blob if browser already parsed it in memory
-                if (typeof attachment[0] === 'string' && attachment[0].startsWith('blob:')) {
-                    Alert.showStatus(
-                        [
-                            'Retrieving cloned file \'%s\' from memory...',
-                            attachment[1]
-                        ],
-                        'copy'
-                    );
-                    try {
-                        const blobData = await $.ajax({
-                            type: 'GET',
-                            url: `${attachment[0]}`,
-                            processData: false,
-                            timeout: 10000,
-                            xhrFields: {
-                                withCredentials: false,
-                                responseType: 'blob'
-                            }
-                        });
-                        if (blobData instanceof window.Blob) {
-                            const fileReading = new Promise(function(resolve, reject) {
-                                const fileReader = new FileReader();
-                                fileReader.onload = function (event) {
-                                    resolve(event.target.result);
-                                };
-                                fileReader.onerror = function (error) {
-                                    reject(error);
+                cipherMessage['attachment'] = await Promise.all(cipherMessage['attachment'].map(async (attachment) => {
+                    // we need to retrieve data from blob if browser already parsed it in memory
+                    if (typeof attachment === 'string' && attachment.startsWith('blob:')) {
+                        Alert.showStatus(
+                            [
+                                'Retrieving cloned file \'%s\' from memory...',
+                                attachment[1]
+                            ],
+                            'copy'
+                        );
+                        try {
+                            const blobData = await $.ajax({
+                                type: 'GET',
+                                url: `${attachment}`,
+                                processData: false,
+                                timeout: 10000,
+                                xhrFields: {
+                                    withCredentials: false,
+                                    responseType: 'blob'
                                 }
-                                fileReader.readAsDataURL(blobData);
                             });
-                            cipherMessage['attachment'] = await fileReading;
-                        } else {
-                            const error = 'Cannot process attachment data.';
-                            Alert.showError(error);
-                            throw new TypeError(error);
+                            if (blobData instanceof window.Blob) {
+                                const fileReading = new Promise(function(resolve, reject) {
+                                    const fileReader = new FileReader();
+                                    fileReader.onload = function (event) {
+                                        resolve(event.target.result);
+                                    };
+                                    fileReader.onerror = function (error) {
+                                        reject(error);
+                                    }
+                                    fileReader.readAsDataURL(blobData);
+                                });
+
+                                return await fileReading;
+                            } else {
+                                const error = 'Cannot process attachment data.';
+                                Alert.showError(error);
+                                throw new TypeError(error);
+                            }
+                        } catch (error) {
+                            Alert.showError('Cannot retrieve attachment.');
+                            throw error;
                         }
-                    } catch (error) {
-                        console.error(error);
-                        Alert.showError('Cannot retrieve attachment.');
-                        throw error;
                     }
-                }
+                }));
             }
 
             // encrypt message
@@ -5325,7 +5347,15 @@ jQuery.PrivateBin = (function($, RawDeflate) {
                 // version 2 paste
                 const pasteMessage = JSON.parse(pastePlain);
                 if (pasteMessage.hasOwnProperty('attachment') && pasteMessage.hasOwnProperty('attachment_name')) {
-                    AttachmentViewer.setAttachment(pasteMessage.attachment, pasteMessage.attachment_name);
+                    if (Array.isArray(pasteMessage.attachment) && Array.isArray(pasteMessage.attachment_name)) {
+                        pasteMessage.attachment.forEach((attachment, key) => {
+                            const attachment_name = pasteMessage.attachment_name[key];
+                            AttachmentViewer.setAttachment(attachment, attachment_name);
+                        });
+                    } else {
+                        // Continue to process attachment parameters as strings to ensure backward compatibility
+                        AttachmentViewer.setAttachment(pasteMessage.attachment, pasteMessage.attachment_name);
+                    }
                     AttachmentViewer.showAttachment();
                 }
                 pastePlain = pasteMessage.paste;
@@ -5808,10 +5838,14 @@ jQuery.PrivateBin = (function($, RawDeflate) {
             history.pushState({type: 'clone'}, document.title, Helper.baseUri());
 
             if (AttachmentViewer.hasAttachment()) {
-                AttachmentViewer.moveAttachmentTo(
-                    TopNav.getCustomAttachment(),
-                    'Cloned: \'%s\''
-                );
+                const attachments = AttachmentViewer.getAttachments();
+                attachments.forEach(attachment => {
+                    AttachmentViewer.moveAttachmentTo(
+                        TopNav.getCustomAttachment(),
+                        attachment,
+                        'Cloned: \'%s\''
+                    );
+                });
                 TopNav.hideFileSelector();
                 AttachmentViewer.hideAttachment();
                 // NOTE: it also looks nice without removing the attachment
@@ -5819,12 +5853,12 @@ jQuery.PrivateBin = (function($, RawDeflate) {
                 AttachmentViewer.hideAttachmentPreview();
                 TopNav.showCustomAttachment();
 
-                // show another status message to make the user aware that the
-                // file was cloned too!
+                // show another status messages to make the user aware that the
+                // files were cloned too!
                 Alert.showStatus(
                     [
                         'The cloned file \'%s\' was attached to this paste.',
-                        AttachmentViewer.getAttachment()[1]
+                        attachments.map(attachment => attachment[1]).join(', '),
                     ],
                     'copy'
                 );
